@@ -4,6 +4,7 @@ import { newUser } from "../controllers/userControllers.js";
 const router = Router();
 
 
-router.get('/sign-up', newUser);
+router.post('/sign-up', newUser);
+
 
 export default router;
