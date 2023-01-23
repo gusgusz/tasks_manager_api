@@ -1,9 +1,128 @@
 import {Request, Response} from 'express';
+import { connectionDb } from '../database/db.js';
+import { Room, Task } from '../types/roomTypes.js';
+import { roomSchema, taskSchema } from '../models/roomModels.js';
 
 export async function createRoom(req: Request, res: Response) {
-    const id : number = req.body.id;
+    const id : number = res.locals.id;
+    const validation = roomSchema.validate(req.body);
+    if (validation.error) {
+        res.status(400).send(validation.error.details[0].message);
+        return;
+    }
+    
     try {
-        res.status(200).send({ id});
+
+    
+        const { nameRoom, isPrivate } : Room= req.body;
+        const isNameRoom = await connectionDb.query(`SELECT * FROM rooms WHERE "nameRoom" = $1;`, [nameRoom]);
+        if(isNameRoom.rowCount !==0 && isNameRoom.rows[0].userId === id) {
+            res.status(409).send('Room already exists');
+            return;
+        }
+    await connectionDb.query(`INSERT INTO rooms ("userId", "nameRoom", "createdAt", "isPrivate") VALUES ($1, $2, $3, $4);`, [id, nameRoom, new Date(), isPrivate]);
+        res.status(201).send('Room created');
+        return;
+    } catch (err) {
+        res.sendStatus(500);
+        return;
+    }
+}
+
+export async function getRooms(req: Request, res: Response) {
+    const id : number = res.locals.id;
+    try {
+        const rooms = await connectionDb.query(`SELECT * FROM rooms WHERE "userId" = $1;`, [id]);
+        res.send(rooms.rows);
+        return;
+    } catch (err) {
+        res.sendStatus(500);
+        return;
+    }
+}
+
+export async function deleteRoom(req: Request, res: Response) {
+    const id : number = res.locals.id;
+    const roomId = req.params.id;
+    try {
+        const isRoom = await connectionDb.query(`SELECT * FROM rooms WHERE id = $1;`, [roomId]);
+        if (isRoom.rowCount === 0) {
+            res.sendStatus(404);
+            return;
+        }
+        if (isRoom.rows[0].userId !== id) {
+            res.sendStatus(401);
+            return;
+        }
+        await connectionDb.query(`DELETE FROM rooms WHERE id = $1;`, [roomId]);
+        res.sendStatus(200);
+        return;
+    } catch (err) {
+        res.sendStatus(500);
+        return;
+    }
+}
+
+export async function createTask(req: Request, res: Response) {
+    const id : number = res.locals.id;
+    const roomId : number = Number(req.params.id);
+    const validation = taskSchema.validate(req.body);
+    if (validation.error) {
+        res.status(400).send(validation.error.details[0].message);
+        return;
+    }
+    const { nameTask, email, dueDate} = req.body;
+
+    try {
+       
+        const isEmail = await connectionDb.query(`SELECT * FROM users WHERE email = $1;`, [email]);
+        if (isEmail.rowCount === 0) {
+            res.status(400).send('Email not found');
+            return;
+        }
+        const userId = isEmail.rows[0].id;
+    
+        if(dueDate < new Date()) {
+            res.status(400).send('Due date must be greater than today');
+            return;
+        }
+       
+    
+        const isRoom = await connectionDb.query<Task>(`SELECT * FROM rooms WHERE id = $1;`, [roomId]);
+        if (isRoom.rowCount === 0) {
+            res.sendStatus(404);
+            return;
+        }
+        if (isRoom.rows[0].userId !== id) {
+            res.sendStatus(401);
+            return;
+        }
+        await connectionDb.query(`INSERT INTO tasks ("roomId", "userId", "nameTask", "isDone", "dueDate", "createdAt") VALUES ($1, $2, $3, $4, $5, $6);`, [roomId, userId, nameTask,false, dueDate, new Date()]);
+        res.sendStatus(201);
+        return;
+    } catch (err) {
+        console.log(err.message);
+        console.log(new Date());
+        res.sendStatus(500);
+        return;
+    }
+}
+
+export async function getTasks(req: Request, res: Response) {
+    const id : number = res.locals.id;
+    const roomId : number = Number(req.params.id);
+    try {
+        const isRoom = await connectionDb.query(`SELECT * FROM rooms WHERE id = $1;`, [roomId]);
+        if (isRoom.rowCount === 0) {
+            res.sendStatus(404);
+            return;
+        }
+        if (isRoom.rows[0].userId !== id) {
+            res.sendStatus(401);
+            return;
+        }
+        const tasks = await connectionDb.query(`SELECT * FROM tasks WHERE "roomId" = $1;`, [roomId]);
+        res.send(tasks.rows);
         return;
     } catch (err) {
         res.sendStatus(500);

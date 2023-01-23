@@ -4,7 +4,7 @@ import { connectionDb } from "../database/db.js";
 
 
 export async function authMiddleware(req: Request, res: Response, next: any) {
-    const token = (req.headers.authorization?.replace('Bearer ', '')).trim();
+    const token = (req.headers.authorization?.replace('Bearer ', ''))?.trim();
     if (!token) {
         res.sendStatus(401);
         return;
@@ -18,7 +18,7 @@ export async function authMiddleware(req: Request, res: Response, next: any) {
 
         const user = await connectionDb.query<User>(`SELECT * FROM users WHERE id = $1;`, [isToken.rows[0].userId]);
 
-        req.body.id = user.rows[0].id;
+        res.locals.id = user.rows[0].id;
         next();
     } catch (err) {
         res.sendStatus(500);
