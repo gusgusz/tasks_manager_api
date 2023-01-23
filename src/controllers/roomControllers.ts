@@ -32,8 +32,10 @@ export async function createRoom(req: Request, res: Response) {
 export async function getRooms(req: Request, res: Response) {
     const id : number = res.locals.id;
     try {
-        const rooms = await connectionDb.query(`SELECT * FROM rooms WHERE "userId" = $1;`, [id]);
-        res.send(rooms.rows);
+
+        const rooms = (await connectionDb.query<Room>(`SELECT * FROM rooms WHERE "userId" = $1;`, [id])).rows;
+        const countRooms : number = (await connectionDb.query(`SELECT COUNT(*) FROM rooms WHERE "userId" = $1;`, [id])).rows;
+        res.send({countRooms, rooms});
         return;
     } catch (err) {
         res.sendStatus(500);
@@ -45,7 +47,7 @@ export async function deleteRoom(req: Request, res: Response) {
     const id : number = res.locals.id;
     const roomId = req.params.id;
     try {
-        const isRoom = await connectionDb.query(`SELECT * FROM rooms WHERE id = $1;`, [roomId]);
+        const isRoom = await connectionDb.query<Room>(`SELECT * FROM rooms WHERE id = $1;`, [roomId]);
         if (isRoom.rowCount === 0) {
             res.sendStatus(404);
             return;
@@ -121,8 +123,9 @@ export async function getTasks(req: Request, res: Response) {
             res.sendStatus(401);
             return;
         }
-        const tasks = await connectionDb.query(`SELECT * FROM tasks WHERE "roomId" = $1;`, [roomId]);
-        res.send(tasks.rows);
+        const tasks = (await connectionDb.query(`SELECT * FROM tasks WHERE "roomId" = $1;`, [roomId])).rows;
+        const countTasks : number = (await connectionDb.query(`SELECT COUNT(*) FROM tasks WHERE "roomId" = $1;`, [roomId])).rows;
+        res.send({countTasks, tasks});
         return;
     } catch (err) {
         res.sendStatus(500);
